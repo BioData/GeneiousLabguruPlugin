@@ -1,6 +1,18 @@
+plugins{
+    id('java')
+}
+
 ext {
     shortName = "LimsConnectorPlugin"
     pluginName = "com.biomatters.plugins.example." + shortName
+}
+
+repositories{
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.3.1'
 }
 
 apply from: 'geneiousplugin.gradle'

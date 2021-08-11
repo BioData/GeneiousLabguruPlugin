@@ -75,3 +75,6 @@ public interface LimsAdapter {
         documentNotes.saveNotes(false);
     }
 }
+
+//public class LabguruAdapter extends LimsAdapter{
+//}

@@ -5,11 +5,10 @@ import com.biomatters.geneious.publicapi.plugin.GeneiousPlugin;
 import com.biomatters.geneious.publicapi.plugin.GeneiousService;
 
 import java.io.File;
-
 @SuppressWarnings("unused")
 public class LimsConnectorPlugin extends GeneiousPlugin {
 
-    static final String LIMS_NAME = "Example LIMS"; //todo
+    static final String LIMS_NAME = "Labguru"; //todo
     private static final String PLUGIN_VERSION = "0.0.2"; //todo
 
     private LimsAdapter limsAdapter;
