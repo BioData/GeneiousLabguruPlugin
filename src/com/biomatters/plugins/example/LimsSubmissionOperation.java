@@ -116,7 +116,7 @@ public class LimsSubmissionOperation extends DocumentOperation {
 
                 List<String> allSequences = new ArrayList<String>();
                 allSequences = findMatches("ORIGIN(.+?)//", gb_files.get(i));
-                String jsonTemplateString = "{\"token\": \"1619a04b258bbe32caa2b450ed06ae7bb9931adb\", \"item\": {\"title\": \"replace_name\", \"sequence\": \"replace_sequence\"}}";
+                String jsonTemplateString = "{\"token\": \"xxxxxxxxxxxxxxxx\", \"item\": {\"title\": \"replace_name\", \"sequence\": \"replace_sequence\"}}";
                 String replaceString=jsonTemplateString.replaceAll("replace_sequence", allSequences.get(0));
                 String replaceString_1=replaceString.replaceAll("ORIGIN","");
                 String replaceString_2=replaceString_1.replaceAll("//","");
