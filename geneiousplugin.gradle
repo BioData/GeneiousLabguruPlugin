@@ -22,9 +22,12 @@ repositories {
 }
 
 dependencies {
+    implementation group: "com.biomatters", name: "geneious.publicapi", version: "2019.0.4", configuration: "api"
     compile group: "com.biomatters", name: "geneious.publicapi", version: "2019.0.4", configuration: "api"
     testCompile "junit:junit:4.+"
-    testRuntime group: "com.biomatters", name: "geneious.publicapi", version: "2019.0.4", configuration: "runtime"
+    testImplementation "junit:junit:4.+"
+//    testRuntime group: "com.biomatters", name: "geneious.publicapi", version: "2019.0.4", configuration: "runtime"
+    testRuntimeOnly group: "com.biomatters", name: "geneious.publicapi", version: "2019.0.4", configuration: "runtime"
 }
 
 compileJava {
@@ -61,6 +64,7 @@ task createPlugin(dependsOn: build, type: Zip) {
         }
     }
     from(libsDir)
+//    from(libsDirectory)
     from(sourceSets.main.resources)
     into pluginName
 

@@ -9,7 +9,7 @@ import java.io.File;
 public class LimsConnectorPlugin extends GeneiousPlugin {
 
     static final String LIMS_NAME = "Labguru"; //todo
-    private static final String PLUGIN_VERSION = "0.0.2"; //todo
+    private static final String PLUGIN_VERSION = "0.0.5"; //todo
 
     private LimsAdapter limsAdapter;
 
@@ -22,7 +22,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getName() {
-        return LIMS_NAME + " Connector";
+        return LIMS_NAME + " Connector ";
     }
 
     @Override
@@ -37,7 +37,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getAuthors() {
-        return "Biomatters Ltd.";
+        return "Labguru";
     }
 
     @Override
@@ -47,7 +47,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getMinimumApiVersion() {
-        return "4.201900";
+        return "1.00";
     }
 
     @Override
@@ -57,7 +57,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getEmailAddressForCrashes() {
-        return "your.name@yourcompany.com";
+        return "support@biodata.com";
     }
 
     @Override
