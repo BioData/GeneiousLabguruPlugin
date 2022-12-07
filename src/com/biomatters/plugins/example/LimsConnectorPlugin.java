@@ -27,7 +27,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getDescription() {
-        return "Allows submission and retrieval of sequences to/from " + LIMS_NAME;
+        return "Allows submission of plasmids to/from " + LIMS_NAME;
     }
 
     @Override
