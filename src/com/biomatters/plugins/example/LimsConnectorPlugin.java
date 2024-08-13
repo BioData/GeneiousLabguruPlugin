@@ -9,7 +9,7 @@ import java.io.File;
 public class LimsConnectorPlugin extends GeneiousPlugin {
 
     static final String LIMS_NAME = "Labguru"; //todo
-    private static final String PLUGIN_VERSION = "0.0.2"; //todo
+    private static final String PLUGIN_VERSION = "1.0.0"; //todo
 
     private LimsAdapter limsAdapter;
 
@@ -57,7 +57,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
 
     @Override
     public String getEmailAddressForCrashes() {
-        return "your.name@yourcompany.com";
+        return "support@biodata.com";
     }
 
     @Override

@@ -4,7 +4,9 @@ import com.biomatters.geneious.publicapi.components.Dialogs;
 import com.biomatters.geneious.publicapi.documents.AnnotatedPluginDocument;
 import com.biomatters.geneious.publicapi.documents.sequence.NucleotideSequenceDocument;
 import com.biomatters.geneious.publicapi.plugin.*;
+import com.biomatters.geneious.publicapi.plugin.Options;
 import com.biomatters.geneious.publicapi.utilities.StandardIcons;
+import com.google.gson.*;
 import jebl.util.ProgressListener;
 
 import java.io.BufferedReader;
@@ -21,7 +23,6 @@ import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.google.gson.Gson;
 import javax.swing.event.DocumentEvent;
 
 import static com.biomatters.plugins.example.LimsConnectorPlugin.LIMS_NAME;
@@ -37,6 +38,27 @@ public class LimsSubmissionOperation extends DocumentOperation {
     @Override
     public GeneiousActionOptions getActionOptions() {
         return new GeneiousActionOptions("Submit to " + LIMS_NAME, null, StandardIcons.database.getIcons()).setInMainToolbar(true);
+    }
+
+    @Override
+    public Options getOptions(AnnotatedPluginDocument... documents) throws DocumentOperationException {
+        Options options_input = new Options(this.getClass());
+        Options.StringOption email = options_input.addStringOption("email", "Email", "Default Email");
+        Options.StringOption password = options_input.addStringOption("password", "Password", "Default Password");
+        Log my_log = null;
+        try {
+            my_log = new Log("/Users/Noa/log.txt");
+        } catch (IOException e) {
+            my_log.logger.warning("IOException");
+            my_log.logger.warning(String.valueOf(e));
+            e.printStackTrace();
+        }
+        my_log.logger.setLevel(Level.WARNING);
+        my_log.logger.warning("options");
+        my_log.logger.warning(email.getValue());
+        my_log.logger.warning(password.getValue());
+
+        return options_input;
     }
 
     @Override
@@ -65,11 +87,8 @@ public class LimsSubmissionOperation extends DocumentOperation {
             e.printStackTrace();
         }
 
-        my_log.logger.warning("sequenceSelection");
-        my_log.logger.warning(String.valueOf(sequenceSelection));
-
-
         List<String> gb_files = new ArrayList<String>();
+        List<String> plasmidsNames = new ArrayList<String>();
         List<AnnotatedPluginDocument> sequencesAlreadyInLims = new ArrayList<>();
         List<AnnotatedPluginDocument> sequencesWithIdsAlready = new ArrayList<>();
         for (AnnotatedPluginDocument annotatedDocument : annotatedDocuments) {
@@ -77,10 +96,12 @@ public class LimsSubmissionOperation extends DocumentOperation {
             Optional<String> idOnDocument = LimsAdapter.getIdFromDocumentNotes(annotatedDocument);
             if (idOnDocument.isPresent()) {
                 gb_files.add(annotatedDocument.getDocument().toHTML());
+                plasmidsNames.add(annotatedDocument.getDocument().getName());
                 sequencesWithIdsAlready.add(annotatedDocument);
             } else {
                 List<String> searchResults = limsAdapter.searchForSequences(sequence.getCharSequence());
                 gb_files.add(annotatedDocument.getDocument().toHTML());
+                plasmidsNames.add(annotatedDocument.getDocument().getName());
                 if (!searchResults.isEmpty()) {
                     sequencesAlreadyInLims.add(annotatedDocument);
                 }
@@ -96,6 +117,7 @@ public class LimsSubmissionOperation extends DocumentOperation {
             }
         }
 
+
         if (!sequencesWithIdsAlready.isEmpty()) {
             if (!Dialogs.showContinueCancelDialog("<html><b>Some selected sequences already have an ID from " + LIMS_NAME + ".</b><br><br>" +
                             "Submitting will overwrite existing entries in " + LIMS_NAME + ".</html>",
@@ -106,26 +128,65 @@ public class LimsSubmissionOperation extends DocumentOperation {
 
         //do submission
         try {
+            //options_input
+            my_log.logger.warning("options_input");
+            Options options_input = new Options(getClass());
+            Options.BooleanOption reverseComplement = options_input.addBooleanOption("reverseComplement", "Reverse Complement", false);
+            Options.StringOption name = options_input.addStringOption("name", "Name", "Default Name");
+            my_log.logger.warning("options_input2");
+
+            if (Dialogs.showOptionsDialog(options_input,"Title",true)) { // returns true if user clicked OK.
+                my_log.logger.warning("options_input3");
+                if (reverseComplement.getValue()) {
+                    System.out.println("Reverse complement selected and name="+name.getValue());
+                }
+            }
+
+        }catch (Exception e) {
+            e.printStackTrace();
+            my_log.logger.warning(String.valueOf(e));
+        }
+
+        try{
+            my_log.logger.warning("options_input4");
+
+
             //find all plasmids names
             List<String> allPlasmidsNames = new ArrayList<String>();
             allPlasmidsNames = findMatches("<cache_name>(.+?)</cache_name>", Arrays.toString(annotatedDocuments));
 
-            for (int i = 0; i < allPlasmidsNames.size(); i++) {
+            for (int i = 0; i < plasmidsNames.size(); i++) {
                 my_log.logger.warning("gb_files.get(i)");
-                my_log.logger.warning(gb_files.get(i));
+                my_log.logger.warning(plasmidsNames.get(i));
+
+                User user = new User("noakap92@gmail.com", "203641931Noa");
+                Gson gsonUsr = new Gson();
+                String userJson = gsonUsr.toJson(user);
+                String response = postRequest("https://my.labguru.com/api/v1/sessions.json", userJson);
+
+                my_log.logger.warning("response token");
+                my_log.logger.warning("response");
+                my_log.logger.warning(response);
+
 
                 List<String> allSequences = new ArrayList<String>();
                 allSequences = findMatches("ORIGIN(.+?)//", gb_files.get(i));
-                String jsonTemplateString = "{\"token\": \"xxxxxxxxxxxxxxxx\", \"item\": {\"title\": \"replace_name\", \"sequence\": \"replace_sequence\"}}";
-                String replaceString=jsonTemplateString.replaceAll("replace_sequence", allSequences.get(0));
-                String replaceString_1=replaceString.replaceAll("ORIGIN","");
-                String replaceString_2=replaceString_1.replaceAll("//","");
-                String replaceString_3=replaceString_2.replaceAll("\\R","");
-                String replaceString_4=replaceString_3.replaceAll("replace_name",allPlasmidsNames.get(i));
+                String replaceString=allSequences.get(0).replaceAll("ORIGIN","");
+                String replaceString_1=replaceString.replaceAll("//","");
+                String replaceString_2=replaceString_1.replaceAll("\\R","");
 
-                postRequest("https://my.labguru.com/api/v1/plasmids.json", replaceString_4);
+                Plasmid plasmid = new Plasmid(plasmidsNames.get(i), replaceString_2);
+                Item item = new Item(plasmid);
+                Gson gson = new Gson();
+                String token = "501d54b546976e851f3a9c3d6f0580d043cdb103";
+                JsonElement jsonElement = gson.toJsonTree(item);
+                jsonElement.getAsJsonObject().addProperty("token", token);
+                String itemJson = gson.toJson(jsonElement);
+
+                postRequest("https://my.labguru.com/api/v1/plasmids.json", itemJson);
                 my_log.logger.warning("jsonBodyStr");
-                my_log.logger.warning(replaceString_4);
+                my_log.logger.warning(itemJson);
+
             }
 
 
@@ -138,6 +199,9 @@ public class LimsSubmissionOperation extends DocumentOperation {
         } catch (IOException e) {
             e.printStackTrace();
             my_log.logger.warning(String.valueOf(e));
+        } catch (Exception e) {
+        e.printStackTrace();
+        my_log.logger.warning(String.valueOf(e));
         }
 
         my_log.logger.warning("annotatedDocuments");
@@ -160,7 +224,7 @@ public class LimsSubmissionOperation extends DocumentOperation {
         return super.getOptions(operationInput);
     }
 
-    public void postRequest(String urlStr, String jsonBodyStr) throws IOException {
+    public String postRequest(String urlStr, String jsonBodyStr) throws IOException {
         Log my_log = null;
         try {
             my_log = new Log("/Users/Noa/log.txt");
@@ -178,7 +242,7 @@ public class LimsSubmissionOperation extends DocumentOperation {
             outputStream.write(jsonBodyStr.getBytes());
             outputStream.flush();
         }
-        if (httpURLConnection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+        if (httpURLConnection.getResponseCode() == HttpURLConnection.HTTP_CREATED || httpURLConnection.getResponseCode() == HttpURLConnection.HTTP_OK) {
             try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(httpURLConnection.getInputStream()))) {
                 StringBuilder response = new StringBuilder();
                 String line;
@@ -188,9 +252,12 @@ public class LimsSubmissionOperation extends DocumentOperation {
                     my_log.logger.warning(String.valueOf(response));
                     // ... do something with line
                 }
+                return String.valueOf(response);
             }
         } else {
             my_log.logger.warning("HttpURLConnection failed");
+            my_log.logger.warning(String.valueOf(httpURLConnection.getResponseCode()));
+            return String.valueOf(httpURLConnection.getResponseCode());
             // ... do something with unsuccessful response
         }
     }
@@ -214,7 +281,7 @@ public class LimsSubmissionOperation extends DocumentOperation {
         while (matcher.find()) {
             my_log.logger.warning("findMatches");
             allMatches.add(matcher.group());
-//            my_log.logger.warning(matcher.group());
+            my_log.logger.warning(matcher.group());
         }
         return allMatches;
     }

@@ -73,6 +73,7 @@ String getPluginVersion() {
     def pluginSourceFile = file("$projectDir/src/" + pluginName.replace(".", "/") + ".java")
     pluginSourceFile.eachLine { line ->
         def m = p.matcher(line)
+        println(line)
         if (m.find()) {
             versionString = "_" + m[0][1].replaceAll("\\.", "_")
         }

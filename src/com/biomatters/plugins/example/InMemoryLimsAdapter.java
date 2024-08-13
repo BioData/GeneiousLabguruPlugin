@@ -10,13 +10,13 @@ import com.biomatters.geneious.publicapi.documents.sequence.SequenceCharSequence
 import com.biomatters.geneious.publicapi.documents.sequence.SequenceDocument;
 import com.biomatters.geneious.publicapi.plugin.DocumentOperationException;
 import com.biomatters.geneious.publicapi.utilities.CharSequenceUtilities;
+import com.biomatters.geneious.publicapi.utilities.IconUtilities;
 
 import java.util.*;
 
 public class InMemoryLimsAdapter implements LimsAdapter {
 
     private static final Map<String, AnnotatedPluginDocument> SEQUENCES = Collections.synchronizedMap(new HashMap<>());
-
     @Override
     public List<String> searchForSequences(SequenceCharSequence sequence) throws DocumentOperationException {
         List<String> matchingIds = new ArrayList<>();
