@@ -63,6 +63,45 @@ public class LimsListenerPlugin extends GeneiousPlugin {
         return "4.201900";
     }
 
+    private static String getConfigPath() { //if easyedit changes config dir name there will be blood
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.contains("win")) {
+            return System.getenv("APPDATA") + "/EasyEdit2Config/Geneious";  // Returns the Roaming folder
+        } else if (osName.contains("mac") || osName.contains("darwin")) {
+            return System.getProperty("user.home") + "/Library/Application Support/EasyEdit2Config/Geneious";
+        } else {
+            Log("WEIRD OS:" + System.getProperty("user.home"));
+            return "WEIRD OS:" + System.getProperty("user.home");
+        }
+    }
+
+    public static void Log(String content) {
+        if (logFile != null && logFile.exists()) {
+            try (FileWriter writer = new FileWriter(logFile, true)) { // true for append mode
+                writer.write(content + "\n"); // Append new content in new line
+            } catch (IOException e) {
+                System.out.println("An error occurred while writing to the file: " + logFile);
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("Log file not initialized or does not exist.");
+        }
+    }
+
+    public static void deleteFolder(Path path) throws IOException {
+        // Try with resources to ensure proper closure of resources
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+            for (Path entry : stream) {
+                if (Files.isDirectory(entry)) {
+                    deleteFolder(entry);
+                } else {
+                    Files.delete(entry);
+                }
+            }
+            Files.delete(path);
+        }
+    }
+
     @Override
     public void initialize(File pluginUserDirectory, File pluginDirectory) {
         PluginUtilities.addWritableDatabaseServiceRootListener(new PluginUtilities.WritableDatabaseServicesListener() {
@@ -87,8 +126,23 @@ public class LimsListenerPlugin extends GeneiousPlugin {
             } catch (DatabaseServiceException e) {
                 throw new RuntimeException(e);
             }
+
             WritableDatabaseService registry = db.getChildService("Labguru Sync Folder");
+
+            Path destDir = Paths.get(getConfigPath());
+                                if (destDir.toFile().exists()) {
+                                    Log("deleting existing dest dir: " + destDir);
+                                    try {
+                                        deleteFolder(destDir);
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                    Log("deleted successfully");
+                                }
+                                destDir.toFile().mkdirs();
+                                Log("Destination directory created: " + destDir);
             if (registry != null) {
+
                 try {
                     registry.retrieve(Query.Factory.createBrowseQuery(), new RetrieveCallback() {
                         @Override
@@ -111,20 +165,20 @@ public class LimsListenerPlugin extends GeneiousPlugin {
                                 if (logFile == null) {
                                     logFile = FileUtilities.createTempFile("log_listener", ".txt", false);
                                 }
-                                Path destDir = Paths.get(getConfigPath());
-                                if (destDir.toFile().exists()) {
-                                    Log("deleting existing dest dir: " + destDir);
-                                    deleteFolder(destDir);
-                                    Log("deleted successfully");
-                                }
-                                destDir.toFile().mkdirs();
-                                Log("Destination directory created: " + destDir);
+//                                Path destDir = Paths.get(getConfigPath());
+//                                if (destDir.toFile().exists()) {
+//                                    Log("deleting existing dest dir: " + destDir);
+//                                    deleteFolder(destDir);
+//                                    Log("deleted successfully");
+//                                }
+//                                destDir.toFile().mkdirs();
+//                                Log("Destination directory created: " + destDir);
 
                                 String plasmid_name = annotatedDocument.getDocument().getName();
                                 Log("Plasmid name: " + plasmid_name + "\n" + "LogFile: " + logFile);
                                 long timePassed =  new Date().getTime() - annotatedDocument.getCreationDate().getTime();
                                 Log("time passed: " + timePassed);
-                                if ( timePassed > 30 * 1000){
+                                if ( timePassed > 10 * 1000){
                                     Log("skipping because of long time: " + timePassed / (1000 * 60) + " minutes");
                                     return;
                                 }
@@ -152,52 +206,10 @@ public class LimsListenerPlugin extends GeneiousPlugin {
                             }
                         }
 
-                        public void Log(String content) {
-                            if (logFile != null && logFile.exists()) {
-                                try (FileWriter writer = new FileWriter(logFile, true)) { // true for append mode
-                                    writer.write(content + "\n"); // Append new content in new line
-                                } catch (IOException e) {
-                                    System.out.println("An error occurred while writing to the file: " + logFile);
-                                    e.printStackTrace();
-                                }
-                            } else {
-                                System.out.println("Log file not initialized or does not exist.");
-                            }
-                        }
-
-                            public void deleteFolder(Path path) throws IOException {
-                                // Try with resources to ensure proper closure of resources
-                                try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
-                                    for (Path entry : stream) {
-                                        if (Files.isDirectory(entry)) {
-                                            deleteFolder(entry);
-                                        } else {
-                                            Files.delete(entry);
-                                        }
-                                    }
-                                    Files.delete(path);
-                                }
-                            }
-
-                            private String getConfigPath() { //if easyedit changes config dir name there will be blood
-                                String osName = System.getProperty("os.name").toLowerCase();
-                                if (osName.contains("win")) {
-                                    return System.getenv("APPDATA") + "/EasyEdit2Config/Geneious";  // Returns the Roaming folder
-                                } else if (osName.contains("mac") || osName.contains("darwin")) {
-                                    return System.getProperty("user.home") + "/Library/Application Support/EasyEdit2Config/Geneious";
-                                } else {
-                                    Log("WEIRD OS:" + System.getProperty("user.home"));
-                                    return "WEIRD OS:" + System.getProperty("user.home");
-                                }
-                        }
-
-
-
                         @Override
                         public void remove(AnnotatedPluginDocument annotatedDocument) {
 
-
-
+//TODO BRING BACK?
                             //todo sync to LIMS
                         }
                     }, new URN[0]);
