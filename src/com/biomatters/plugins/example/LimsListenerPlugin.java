@@ -7,6 +7,7 @@ import com.biomatters.geneious.publicapi.documents.URN;
 import com.biomatters.geneious.publicapi.documents.sequence.NucleotideSequenceDocument;
 import com.biomatters.geneious.publicapi.plugin.*;
 import com.biomatters.geneious.publicapi.utilities.FileUtilities;
+import org.apache.commons.logging.LogFactory;
 import org.virion.jam.util.SimpleListener;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -14,10 +15,18 @@ import org.json.simple.JSONValue;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.*;
+import java.util.Date;
 import java.util.Map;
 import java.util.logging.Level;
 
+import static com.biomatters.geneious.publicapi.utilities.StandardIcons.database;
+
 public class LimsListenerPlugin extends GeneiousPlugin {
+    private static final org.apache.commons.logging.Log log = LogFactory.getLog(LimsListenerPlugin.class);
+    private static File logFile = null;
+    private static FileWriter Writer = null;
+
 
     @Override
     public String getName() {
@@ -71,7 +80,13 @@ public class LimsListenerPlugin extends GeneiousPlugin {
     }
 
     private void refreshDatabases() {
+
         for (WritableDatabaseService db : PluginUtilities.getWritableDatabaseServiceRoots()) {
+            try {
+                WritableDatabaseService folder = db.createChildFolder("Labguru Sync Folder");
+            } catch (DatabaseServiceException e) {
+                throw new RuntimeException(e);
+            }
             WritableDatabaseService registry = db.getChildService("Labguru Sync Folder");
             if (registry != null) {
                 try {
@@ -86,73 +101,101 @@ public class LimsListenerPlugin extends GeneiousPlugin {
                             return true;
                         }
 
+
                         @Override
                         protected void _add(AnnotatedPluginDocument annotatedDocument, Map<String, Object> searchResultProperties) {
-                            // sync to Labguru
-                            try{
+                            //TODO: make Labguru Sync Folder
+                            //TODO: make it only upload new files
 
-                                File logFile = FileUtilities.createTempFile("log_listener", ".txt", false);
-                                FileWriter Writer = new FileWriter(logFile.getAbsolutePath());
-
+                            try {
+                                if (logFile == null) {
+                                    logFile = FileUtilities.createTempFile("log_listener", ".txt", false);
+                                }
+                                Path destDir = Paths.get(getConfigPath());
+                                if (destDir.toFile().exists()) {
+                                    Log("deleting existing dest dir: " + destDir);
+                                    deleteFolder(destDir);
+                                    Log("deleted successfully");
+                                }
+                                destDir.toFile().mkdirs();
+                                Log("Destination directory created: " + destDir);
 
                                 String plasmid_name = annotatedDocument.getDocument().getName();
-                                Writer.write("plasmid_name " + plasmid_name);
+                                Log("Plasmid name: " + plasmid_name + "\n" + "LogFile: " + logFile);
+                                long timePassed =  new Date().getTime() - annotatedDocument.getCreationDate().getTime();
+                                Log("time passed: " + timePassed);
+                                if ( timePassed > 30 * 1000){
+                                    Log("skipping because of long time: " + timePassed / (1000 * 60) + " minutes");
+                                    return;
+                                }
 
-                                File tempFile = FileUtilities.createTempFile("temp", ".gb", false);
+                                File tempFile = FileUtilities.createTempFile(plasmid_name + "_", ".gb", false);
                                 PluginUtilities.exportDocuments(tempFile,annotatedDocument);
 
+//                                    Path sourcePath = Paths.get(logFile.getParent() + "/" + plasmid_name);
 
-                                Api attachments_request = new Api();
-                                JSONObject attachments_obj= null;
+                                Path sourcePath = Paths.get(tempFile.getAbsolutePath());
+                                Path destinationPath = Paths.get(getConfigPath()+ "/" + tempFile.getName());
+                                    Log("moving " + plasmid_name + " from " + sourcePath + " to " + destinationPath);
+                                    try {
+                                        Files.move(sourcePath, destinationPath  , StandardCopyOption.REPLACE_EXISTING);
+                                        Log("moved successfully");
+                                    } catch (IOException e) {
+                                        Log("An error occurred: " + e.getMessage());
+                                    }
+                            } catch (DocumentOperationException | IOException e){
+//                            } catch (DocumentOperationException | IOException | DatabaseServiceException e) {
+                                Log("Error occurred: " + e.getMessage());
+                                System.out.println("Error occurred: " + e.getMessage());
 
-                                attachments_obj = (JSONObject) JSONValue.parse(attachments_request.postattachments(tempFile, plasmid_name, false));
-                                String response_attachments = attachments_obj.toString();
-
-                                Writer.write("response " + response_attachments);
-
-                                Writer.close();
-
-
-                            } catch (DocumentOperationException e) {
-                                throw new RuntimeException(e);
-                            } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
-
                         }
+
+                        public void Log(String content) {
+                            if (logFile != null && logFile.exists()) {
+                                try (FileWriter writer = new FileWriter(logFile, true)) { // true for append mode
+                                    writer.write(content + "\n"); // Append new content in new line
+                                } catch (IOException e) {
+                                    System.out.println("An error occurred while writing to the file: " + logFile);
+                                    e.printStackTrace();
+                                }
+                            } else {
+                                System.out.println("Log file not initialized or does not exist.");
+                            }
+                        }
+
+                            public void deleteFolder(Path path) throws IOException {
+                                // Try with resources to ensure proper closure of resources
+                                try (DirectoryStream<Path> stream = Files.newDirectoryStream(path)) {
+                                    for (Path entry : stream) {
+                                        if (Files.isDirectory(entry)) {
+                                            deleteFolder(entry);
+                                        } else {
+                                            Files.delete(entry);
+                                        }
+                                    }
+                                    Files.delete(path);
+                                }
+                            }
+
+                            private String getConfigPath() { //if easyedit changes config dir name there will be blood
+                                String osName = System.getProperty("os.name").toLowerCase();
+                                if (osName.contains("win")) {
+                                    return System.getenv("APPDATA") + "/EasyEdit2Config/Geneious";  // Returns the Roaming folder
+                                } else if (osName.contains("mac") || osName.contains("darwin")) {
+                                    return System.getProperty("user.home") + "/Library/Application Support/EasyEdit2Config/Geneious";
+                                } else {
+                                    Log("WEIRD OS:" + System.getProperty("user.home"));
+                                    return "WEIRD OS:" + System.getProperty("user.home");
+                                }
+                        }
+
+
 
                         @Override
                         public void remove(AnnotatedPluginDocument annotatedDocument) {
 
-                            try{
-
-                                File logFile = FileUtilities.createTempFile("log", ".txt", false);
-                                FileWriter Writer = new FileWriter(logFile.getAbsolutePath());
-
-
-                                String plasmid_name = annotatedDocument.getDocument().getName();
-                                String plasmid_sequence = ((NucleotideSequenceDocument) annotatedDocument.getDocument()).getSequenceString();
-                                Writer.write("plasmid_name " + plasmid_name);
-
-
-                                File tempFile = FileUtilities.createTempFile("temp", ".gb", false);
-                                PluginUtilities.exportDocuments(tempFile,annotatedDocument);
-
-                                Api attachments_request = new Api();
-                                JSONObject attachments_obj= null;
-
-                                attachments_obj = (JSONObject) JSONValue.parse(attachments_request.postattachments(tempFile, plasmid_name, true));
-                                String response_attachments = attachments_obj.toString();
-
-                                Writer.write("response " + response_attachments);
-
-                                Writer.close();
-
-                            } catch (DocumentOperationException e) {
-                                throw new RuntimeException(e);
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
 
 
                             //todo sync to LIMS
