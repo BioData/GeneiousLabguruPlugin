@@ -7,6 +7,7 @@ import com.biomatters.geneious.publicapi.documents.URN;
 import com.biomatters.geneious.publicapi.documents.sequence.NucleotideSequenceDocument;
 import com.biomatters.geneious.publicapi.plugin.*;
 import com.biomatters.geneious.publicapi.utilities.FileUtilities;
+import jebl.util.ProgressListener;
 import org.apache.commons.logging.LogFactory;
 import org.virion.jam.util.SimpleListener;
 import org.json.simple.JSONObject;
@@ -16,11 +17,14 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 
 import static com.biomatters.geneious.publicapi.utilities.StandardIcons.database;
+import static com.biomatters.geneious.publicapi.utilities.StandardIcons.document;
 
 public class LimsListenerPlugin extends GeneiousPlugin {
     private static final org.apache.commons.logging.Log log = LogFactory.getLog(LimsListenerPlugin.class);
@@ -63,6 +67,11 @@ public class LimsListenerPlugin extends GeneiousPlugin {
         return "4.201900";
     }
 
+    ArrayList<String> startFiles = new ArrayList<>();
+
+    public static final String LGFolder = "Labguru Sync Folder";
+    public static boolean firstTime = true;
+
     private static String getConfigPath() { //if easyedit changes config dir name there will be blood
         String osName = System.getProperty("os.name").toLowerCase();
         if (osName.contains("win")) {
@@ -77,8 +86,8 @@ public class LimsListenerPlugin extends GeneiousPlugin {
 
     public static void Log(String content) {
         if (logFile != null && logFile.exists()) {
-            try (FileWriter writer = new FileWriter(logFile, true)) { // true for append mode
-                writer.write(content + "\n"); // Append new content in new line
+            try (FileWriter writer = new FileWriter(logFile, true)) {
+                writer.write(content + "\n");
             } catch (IOException e) {
                 System.out.println("An error occurred while writing to the file: " + logFile);
                 e.printStackTrace();
@@ -122,12 +131,13 @@ public class LimsListenerPlugin extends GeneiousPlugin {
 
         for (WritableDatabaseService db : PluginUtilities.getWritableDatabaseServiceRoots()) {
             try {
-                WritableDatabaseService folder = db.createChildFolder("Labguru Sync Folder");
+                WritableDatabaseService folder = db.createChildFolder(LGFolder);
             } catch (DatabaseServiceException e) {
                 throw new RuntimeException(e);
             }
 
-            WritableDatabaseService registry = db.getChildService("Labguru Sync Folder");
+            WritableDatabaseService registry = db.getChildService(LGFolder);
+
 
             Path destDir = Paths.get(getConfigPath());
                                 if (destDir.toFile().exists()) {
@@ -155,39 +165,35 @@ public class LimsListenerPlugin extends GeneiousPlugin {
                             return true;
                         }
 
-
+                        public void runFirstTime(AnnotatedPluginDocument annotatedDocument) throws DatabaseServiceException {
+                            Log("running first time");
+                            List<AnnotatedPluginDocument> documentsInSameFolder = annotatedDocument.getDatabase().retrieve(Query.Factory.createBrowseQuery(), ProgressListener.EMPTY);
+                            for (AnnotatedPluginDocument s : documentsInSameFolder){
+                                String name = s.getName();
+                                Log("adding " + name);
+                                startFiles.add(name);
+                            }
+                            Log("finished first time");
+                            firstTime = false;
+                        }
                         @Override
                         protected void _add(AnnotatedPluginDocument annotatedDocument, Map<String, Object> searchResultProperties) {
-                            //TODO: make Labguru Sync Folder
-                            //TODO: make it only upload new files
 
                             try {
-                                if (logFile == null) {
+                                if (logFile == null) { //TODO: put in first time?
                                     logFile = FileUtilities.createTempFile("log_listener", ".txt", false);
                                 }
-//                                Path destDir = Paths.get(getConfigPath());
-//                                if (destDir.toFile().exists()) {
-//                                    Log("deleting existing dest dir: " + destDir);
-//                                    deleteFolder(destDir);
-//                                    Log("deleted successfully");
-//                                }
-//                                destDir.toFile().mkdirs();
-//                                Log("Destination directory created: " + destDir);
-
                                 String plasmid_name = annotatedDocument.getDocument().getName();
-                                Log("Plasmid name: " + plasmid_name + "\n" + "LogFile: " + logFile);
-                                long timePassed =  new Date().getTime() - annotatedDocument.getCreationDate().getTime();
-                                Log("time passed: " + timePassed);
-                                if ( timePassed > 10 * 1000){
-                                    Log("skipping because of long time: " + timePassed / (1000 * 60) + " minutes");
+                                if (firstTime) {
+                                    runFirstTime(annotatedDocument);
                                     return;
                                 }
+                                if (startFiles.contains(plasmid_name)) return;
 
-                                File tempFile = FileUtilities.createTempFile(plasmid_name + "_", ".gb", false);
+                                Log("Plasmid name: " + plasmid_name + "\n" + "LogFile: " + logFile);
+//
+                                File tempFile = FileUtilities.createTempFile(plasmid_name + "-Geneious_", ".gb", false);
                                 PluginUtilities.exportDocuments(tempFile,annotatedDocument);
-
-//                                    Path sourcePath = Paths.get(logFile.getParent() + "/" + plasmid_name);
-
                                 Path sourcePath = Paths.get(tempFile.getAbsolutePath());
                                 Path destinationPath = Paths.get(getConfigPath()+ "/" + tempFile.getName());
                                     Log("moving " + plasmid_name + " from " + sourcePath + " to " + destinationPath);
@@ -197,11 +203,9 @@ public class LimsListenerPlugin extends GeneiousPlugin {
                                     } catch (IOException e) {
                                         Log("An error occurred: " + e.getMessage());
                                     }
-                            } catch (DocumentOperationException | IOException e){
-//                            } catch (DocumentOperationException | IOException | DatabaseServiceException e) {
+                            } catch (DocumentOperationException | IOException | DatabaseServiceException e){
                                 Log("Error occurred: " + e.getMessage());
                                 System.out.println("Error occurred: " + e.getMessage());
-
                                 throw new RuntimeException(e);
                             }
                         }
