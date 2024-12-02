@@ -3,8 +3,10 @@ plugins{
 }
 
 ext {
-    shortName = "LimsConnectorPlugin"
-    pluginName = "com.biomatters.plugins.example." + shortName
+    shortName = "EasyEditGeneiousPlugin"
+//    pluginName = "com.biomatters.plugins.example." + shortName
+    pluginName = "com.biomatters.plugins.example." + "LimsConnectorPlugin"
+
 }
 
 repositories{

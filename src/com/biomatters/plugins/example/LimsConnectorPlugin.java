@@ -9,7 +9,7 @@ import java.io.File;
 public class LimsConnectorPlugin extends GeneiousPlugin {
 
     static final String LIMS_NAME = "Labguru"; //todo
-    private static final String PLUGIN_VERSION = "0.0.5"; //todo
+    private static final String PLUGIN_VERSION = "1"; //todo
 
     private LimsAdapter limsAdapter;
 
@@ -75,7 +75,7 @@ public class LimsConnectorPlugin extends GeneiousPlugin {
     @Override
     public DocumentOperation[] getDocumentOperations() {
         return new DocumentOperation[]{
-                new LimsSubmissionOperation(limsAdapter)
+                new SyncWithEasyEdit(limsAdapter)
         };
     }
 }
